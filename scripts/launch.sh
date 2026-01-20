@@ -37,15 +37,23 @@ add_param "-port" "${SERVER_PORT:-}"
 add_param "-password" "${PASSWORD:-}"
 
 # Force new Game ID generation if not manually specified AND explicitly requested
+# Force new Game ID generation if not manually specified AND explicitly requested
 if [[ -z "${GAME_ID:-}" ]] && [[ "${DISCARD_GAME_ID:-false}" =~ ^([Tt][Rr][Uu][Ee]|1|[Yy][Ee][Ss])$ ]]; then
   config_path="${DATA_PATH:-${STEAMAPPDATADIR}}/ServerConfig.json"
   if [[ -f "$config_path" ]]; then
     echo "Removing ${config_path} to force new Game ID generation..."
     rm "$config_path"
   fi
-  # Also remove backup if it exists
+  
   if [[ -f "${config_path}.pugbackup" ]]; then
     rm "${config_path}.pugbackup"
+  fi
+
+  # Also remove GameID.txt in the app directory which might be used as fallback
+  gameid_txt="${STEAMAPPDIR}/GameID.txt"
+  if [[ -f "$gameid_txt" ]]; then
+    echo "Removing ${gameid_txt} to force new Game ID generation..."
+    rm "$gameid_txt"
   fi
 fi
 
