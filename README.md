@@ -117,11 +117,11 @@ docker compose stop
 以下は毎日午前4時にバックアップを実行する例です。
 
 1. crontab 編集モードを開く:
-   ```bash
+
    crontab -e
-   ```
+
 
 2. 以下の行を追加（パスは環境に合わせて変更してください）:
-   ```cron
+
    0 4 * * * /home/your_user/corekeeper-modded/scripts/backup.sh /home/your_user/corekeeper-modded/backups >> /home/your_user/corekeeper-modded/logs/backup.log 2>&1
-   ```
+```
