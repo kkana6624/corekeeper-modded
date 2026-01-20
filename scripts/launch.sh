@@ -36,6 +36,19 @@ add_param "-ip" "${SERVER_IP:-}"
 add_param "-port" "${SERVER_PORT:-}"
 add_param "-password" "${PASSWORD:-}"
 
+# Force new Game ID generation if not manually specified AND explicitly requested
+if [[ -z "${GAME_ID:-}" ]] && [[ "${DISCARD_GAME_ID:-false}" =~ ^([Tt][Rr][Uu][Ee]|1|[Yy][Ee][Ss])$ ]]; then
+  config_path="${DATA_PATH:-${STEAMAPPDATADIR}}/ServerConfig.json"
+  if [[ -f "$config_path" ]]; then
+    echo "Removing ${config_path} to force new Game ID generation..."
+    rm "$config_path"
+  fi
+  # Also remove backup if it exists
+  if [[ -f "${config_path}.pugbackup" ]]; then
+    rm "${config_path}.pugbackup"
+  fi
+fi
+
 # Start a tiny X server for Unity headless
 Xvfb :99 -screen 0 1x1x24 -nolisten tcp &
 xvfbpid=$!
