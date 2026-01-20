@@ -10,8 +10,7 @@ LABEL org.opencontainers.image.title="corekeeper-modded" \
       org.opencontainers.image.description="Core Keeper dedicated server container (vanilla bootstrap)" \
       org.opencontainers.image.source="local"
 
-ENV STEAMAPP=core-keeper \
-    STEAMAPPDIR="${HOMEDIR}/core-keeper-dedicated" \
+ENV STEAMAPPDIR="${HOMEDIR}/core-keeper-dedicated" \
     STEAMAPPDATADIR="${HOMEDIR}/core-keeper-data" \
     SCRIPTSDIR="${HOMEDIR}/scripts" \
     # Steam IDs used by the upstream container implementation
@@ -29,6 +28,8 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends --no-install-suggests \
       xvfb \
+      curl \
+      unzip \
       libxi6 \
       libxcursor1 \
       libxinerama1 \

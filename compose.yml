@@ -20,8 +20,6 @@ services:
     #   - "${SERVER_PORT:-27015}:${SERVER_PORT:-27015}/udp"
 
     volumes:
-      # サーバー本体(steamcmdでDLされるファイル)を永続化したい場合
-      # - ./server-files:/home/steam/core-keeper-dedicated
       # ワールド/設定等の永続化
       - ./server-data:/home/steam/core-keeper-data
 

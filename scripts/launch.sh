@@ -58,11 +58,68 @@ export DISPLAY=:99
 # Ensure Steam runtime libs are visible
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:${STEAMCMDDIR}/linux64"
 
+if [[ "${BEPINEX_ENABLED:-false}" =~ ^([Tt][Rr][Uu][Ee]|1|[Yy][Ee][Ss])$ ]]; then
+  # Do NOT use BepInEx's run_bepinex.sh here:
+  # - it treats $1 as an executable path and does not forward server args
+  # - it relies on `file(1)` which isn't guaranteed to exist
+  # Instead, configure Doorstop like the script does and run the server normally.
+  arch=""
+  case "$(uname -m)" in
+    x86_64|amd64) arch="x64" ;;
+    i386|i686) arch="x86" ;;
+    *)
+      echo "Unsupported architecture for BepInEx 5 unix build: $(uname -m)" >&2
+      exit 1
+      ;;
+  esac
+
+  # Doorstop env vars:
+  # - Doorstop 4.x (BepInEx 5.4.23.2+) uses DOORSTOP_ENABLED/DOORSTOP_TARGET_ASSEMBLY.
+  # - Older BepInEx unix zips used DOORSTOP_ENABLE/DOORSTOP_INVOKE_DLL_PATH.
+  # Set both for compatibility.
+  export DOORSTOP_ENABLED=1
+  export DOORSTOP_TARGET_ASSEMBLY="${STEAMAPPDIR}/BepInEx/core/BepInEx.Preloader.dll"
+  # Prefer BepInEx-bundled dependencies (HarmonyX/MonoMod/Mono.Cecil) over any game-bundled ones.
+  # This avoids version-mismatch crashes like:
+  #   MissingMethodException: ... MonoMod.Utils.DynamicMethodDefinition.get_Definition()
+  export DOORSTOP_MONO_DLL_SEARCH_PATH_OVERRIDE="${STEAMAPPDIR}/BepInEx/core"
+
+  export DOORSTOP_ENABLE=TRUE
+  export DOORSTOP_INVOKE_DLL_PATH="${STEAMAPPDIR}/BepInEx/core/BepInEx.Preloader.dll"
+
+  # Doorstop library location differs by distribution:
+  # - Newer linux_x64 zips ship a single "libdoorstop.so" in the game root.
+  # - Older unix zips used "doorstop_libs/libdoorstop_x64.so".
+  doorstop_preload=""
+  if [[ -f "${STEAMAPPDIR}/libdoorstop.so" ]]; then
+    doorstop_preload="${STEAMAPPDIR}/libdoorstop.so"
+  else
+    doorstop_libs="${STEAMAPPDIR}/doorstop_libs"
+    doorstop_libname="libdoorstop_${arch}.so"
+    if [[ -f "${doorstop_libs}/${doorstop_libname}" ]]; then
+      doorstop_preload="${doorstop_libs}/${doorstop_libname}"
+      export LD_LIBRARY_PATH="${doorstop_libs}:${LD_LIBRARY_PATH}"
+    fi
+  fi
+
+  if [[ -z "${doorstop_preload}" ]]; then
+    echo "Doorstop preload library not found under ${STEAMAPPDIR} (expected libdoorstop.so or doorstop_libs/libdoorstop_${arch}.so)" >&2
+    exit 1
+  fi
+
+  export LD_PRELOAD="${doorstop_preload}:${LD_PRELOAD:-}"
+fi
+
 ./CoreKeeperServer "${params[@]}" &
 ckpid=$!
 
 # Stream logs to container stdout
 # (Unity writes to logfile; tail makes it visible in docker logs)
 tail --pid "$ckpid" -n +1 -f "$logfile" &
+
+if [[ "${BEPINEX_ENABLED:-false}" =~ ^([Tt][Rr][Uu][Ee]|1|[Yy][Ee][Ss])$ ]]; then
+  # `tail -F` will retry until the file appears
+  tail --pid "$ckpid" -n +1 -F "${STEAMAPPDIR}/BepInEx/LogOutput.log" &
+fi
 
 wait "$ckpid"

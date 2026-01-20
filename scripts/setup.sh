@@ -35,4 +35,6 @@ args+=("+quit")
 
 chmod +x "${STEAMAPPDIR}/CoreKeeperServer" || true
 
+bash "${SCRIPTSDIR}/install-bepinex.sh"
+
 exec bash "${SCRIPTSDIR}/launch.sh"
