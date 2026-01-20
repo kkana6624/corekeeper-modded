@@ -12,6 +12,47 @@ mkdir -p "${STEAMAPPDIR}/logs"
 logfile="${STEAMAPPDIR}/logs/$(date '+%Y-%m-%d_%H-%M-%S').log"
 touch "$logfile"
 
+# ==============================================================================
+# Dynamic Game ID Logic: Preserve Config Settings
+# ==============================================================================
+# If DISCARD_GAME_ID is set, we want to regenerate the Game ID.
+# However, deleting ServerConfig.json also resets world settings (Name, Seed, etc.).
+# Solution: Read existing settings BEFORE overwriting env vars/args, then delete file.
+if [[ "${DISCARD_GAME_ID:-false}" =~ ^([Tt][Rr][Uu][Ee]|1|[Yy][Ee][Ss])$ ]]; then
+  config_path="${DATA_PATH:-${STEAMAPPDATADIR}}/ServerConfig.json"
+  
+  if [[ -f "$config_path" ]]; then
+    echo "Reading existing settings from ${config_path}..."
+    
+    # Extract settings to preserve
+    c_worldName=$(jq -r '.worldName // empty' "$config_path")
+    c_worldSeed=$(jq -r '.worldSeed // empty' "$config_path")
+    c_maxPlayers=$(jq -r '.maxNumberPlayers // empty' "$config_path")
+    c_worldMode=$(jq -r '.worldMode // empty' "$config_path")
+
+    # Override env vars if config had values
+    if [[ -n "$c_worldName" ]]; then WORLD_NAME="$c_worldName"; fi
+    if [[ -n "$c_worldSeed" && "$c_worldSeed" != "0" ]]; then WORLD_SEED="$c_worldSeed"; fi
+    if [[ -n "$c_maxPlayers" ]]; then MAX_PLAYERS="$c_maxPlayers"; fi
+    if [[ -n "$c_worldMode" ]]; then WORLD_MODE="$c_worldMode"; fi
+
+    echo "Removing ${config_path} to force new Game ID generation..."
+    rm "$config_path"
+  fi
+  
+  if [[ -f "${config_path}.pugbackup" ]]; then
+    rm "${config_path}.pugbackup"
+  fi
+
+  # Also remove GameID.txt in the app directory which might be used as fallback
+  gameid_txt="${STEAMAPPDIR}/GameID.txt"
+  if [[ -f "$gameid_txt" ]]; then
+    echo "Removing ${gameid_txt} to force new Game ID generation..."
+    rm "$gameid_txt"
+  fi
+fi
+# ==============================================================================
+
 params=(
   "-batchmode"
   "-logfile" "$logfile"
@@ -36,26 +77,6 @@ add_param "-ip" "${SERVER_IP:-}"
 add_param "-port" "${SERVER_PORT:-}"
 add_param "-password" "${PASSWORD:-}"
 
-# Force new Game ID generation if not manually specified AND explicitly requested
-# Force new Game ID generation if not manually specified AND explicitly requested
-if [[ -z "${GAME_ID:-}" ]] && [[ "${DISCARD_GAME_ID:-false}" =~ ^([Tt][Rr][Uu][Ee]|1|[Yy][Ee][Ss])$ ]]; then
-  config_path="${DATA_PATH:-${STEAMAPPDATADIR}}/ServerConfig.json"
-  if [[ -f "$config_path" ]]; then
-    echo "Removing ${config_path} to force new Game ID generation..."
-    rm "$config_path"
-  fi
-  
-  if [[ -f "${config_path}.pugbackup" ]]; then
-    rm "${config_path}.pugbackup"
-  fi
-
-  # Also remove GameID.txt in the app directory which might be used as fallback
-  gameid_txt="${STEAMAPPDIR}/GameID.txt"
-  if [[ -f "$gameid_txt" ]]; then
-    echo "Removing ${gameid_txt} to force new Game ID generation..."
-    rm "$gameid_txt"
-  fi
-fi
 
 # Start a tiny X server for Unity headless
 Xvfb :99 -screen 0 1x1x24 -nolisten tcp &
