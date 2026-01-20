@@ -113,5 +113,17 @@ docker compose stop
 ./scripts/restore.sh backups/backup_corekeeper_YYYYMMDD_HHMMSS.tar.gz
 
 # 3. サーバー起動
-docker compose up -d
-```
+### 定期バックアップ (Crontab)
+
+`cron` を使用してバックアップを定期実行することができます。
+以下は毎日午前4時にバックアップを実行する例です。
+
+1. crontab 編集モードを開く:
+   ```bash
+   crontab -e
+   ```
+
+2. 以下の行を追加（パスは環境に合わせて変更してください）:
+   ```cron
+   0 4 * * * /home/your_user/corekeeper-modded/scripts/backup.sh /home/your_user/corekeeper-modded/backups >> /home/your_user/corekeeper-modded/logs/backup.log 2>&1
+   ```
