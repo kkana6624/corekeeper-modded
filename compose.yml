@@ -26,3 +26,26 @@ services:
     env_file:
       - path: core.env
         required: false
+
+  exporter:
+    image: armsnyder/a2s-exporter
+    container_name: core-keeper-exporter
+    environment:
+      - A2S_EXPORTER_QUERY_ADDRESS=core-keeper:27015
+    ports:
+      - "9101:9841"
+    restart: unless-stopped
+    depends_on:
+      - core-keeper
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: core-keeper-node-exporter
+    command:
+      - '--path.rootfs=/host'
+    pid: host
+    restart: unless-stopped
+    volumes:
+      - '/:/host:ro'
+    ports:
+      - "9100:9100"
