@@ -83,3 +83,19 @@ DISCARD_GAME_ID=true
 
 - **BepInEx が動作しない**: ログ (`docker compose logs`) を確認し、`Doorstop` や `BepInEx` のロードエラーが出ていないか確認してください。
 - **通知が来ない**: Webhook URL が正しいか、curl がコンテナ内で実行できているか確認してください。
+
+## バックアップとリストア
+
+バックアップは `./server-data/` 以下のファイルをアーカイブすることで作成できます。
+リストアには付属のスクリプトを使用できます。
+
+```bash
+# サーバー停止
+docker compose stop
+
+# リストア実行 (tar.gzファイルを指定)
+./scripts/restore.sh path/to/backup.tar.gz
+
+# サーバー起動
+docker compose up -d
+```
