@@ -46,7 +46,7 @@ while [[ -z "$game_id" && "$count" -lt "$max_retries" ]]; do
   
   # Fallback to GameID.txt
   if [[ -f "$gameid_txt" ]]; then
-      temp_game_id=$(cat "$gameid_txt")
+      temp_game_id=$(head -n 1 "$gameid_txt" | tr -d '\r')
       if [[ -n "$temp_game_id" ]]; then
           game_id="$temp_game_id"
           log "Game ID found in GameID.txt: $game_id"
