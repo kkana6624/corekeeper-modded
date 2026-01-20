@@ -86,16 +86,32 @@ DISCARD_GAME_ID=true
 
 ## バックアップとリストア
 
-バックアップは `./server-data/` 以下のファイルをアーカイブすることで作成できます。
-リストアには付属のスクリプトを使用できます。
+## バックアップとリストア
+
+このプロジェクトには、環境設定(`core.env`)とサーバーデータ(`server-data/`)を簡単にバックアップ・リストアするためのユーティリティが含まれています。
+
+### バックアップ作成
+
+`scripts/backup.sh` を実行すると、`backups/` ディレクトリ（デフォルト）にアーカイブが作成されます。
 
 ```bash
-# サーバー停止
+./scripts/backup.sh [出力ディレクトリ]
+# 例: ./scripts/backup.sh
+# -> backups/backup_corekeeper_YYYYMMDD_HHMMSS.tar.gz が作成されます
+```
+
+### リストア実行
+
+`scripts/restore.sh` を使用して、バックアップからデータを復元します。
+**注意**: `core.env` が含まれるバックアップの場合、現在の設定ファイルを上書きするか確認を求められます。
+
+```bash
+# 1. 安全のためサーバーを停止
 docker compose stop
 
-# リストア実行 (tar.gzファイルを指定)
-./scripts/restore.sh path/to/backup.tar.gz
+# 2. リストア実行 (作成されたtar.gzファイルを指定)
+./scripts/restore.sh backups/backup_corekeeper_YYYYMMDD_HHMMSS.tar.gz
 
-# サーバー起動
+# 3. サーバー起動
 docker compose up -d
 ```

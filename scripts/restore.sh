@@ -40,6 +40,14 @@ echo "This will OVERWRITE existing files that exist in the backup."
 echo "However, folders NOT in the backup (like 'bepinex/') will be PRESERVED."
 echo "Please ensure the server (Docker container) is STOPPED before proceeding."
 echo ""
+# Check if archive contains core.env
+has_env=false
+if tar -tf "$ARCHIVE_PATH" | grep "core.env" > /dev/null; then
+  has_env=true
+  echo "⚠️  This backup contains 'core.env'."
+  echo "    Restoring it will OVERWRITE your current configuration."
+fi
+
 read -rp "Are you sure you want to continue? (y/N): " confirm
 if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
   echo "Restoration cancelled."
@@ -48,6 +56,13 @@ fi
 
 echo "Restoring..."
 
+# 1. Restore core.env if present
+if [[ "$has_env" == true ]]; then
+  echo "Restoring core.env..."
+  tar -xzf "$ARCHIVE_PATH" core.env
+fi
+
+# 2. Restore server-data
 # Detect directory structure in archive to determine strip components
 # We look for 'ServerConfig.json' to gauge the depth
 config_path=$(tar -tf "$ARCHIVE_PATH" | grep "ServerConfig.json" | head -n 1)
@@ -56,22 +71,21 @@ if [[ -z "$config_path" ]]; then
   echo "Warning: ServerConfig.json not found in backup. Assuming 0 strip components."
   strip_count=0
 else
-  # Calculate depth. Example: "./data/ServerConfig.json" -> 2 slashes -> strip 2?
-  # Wait, tar output format varies.
-  # If "./data/ServerConfig.json", we want to strip "." and "data", so 2?
-  # If "data/ServerConfig.json", we want to strip "data", so 1?
-  
-  # Standardize path (remove leading ./) for counting ONLY if we treat ./ as no-op?
-  # No, tar --strip-components sees components.
-  # "./data/file" has components ".", "data", "file". To get "file", we need strip=2.
-  # "data/file" has components "data", "file". To get "file", we need strip=1.
-  
   # Count occurrences of '/'
   slash_count=$(echo "$config_path" | tr -cd '/' | wc -c)
   strip_count=$slash_count
 fi
 
-tar -xzf "$ARCHIVE_PATH" -C "$SERVER_DATA_DIR" --strip-components="$strip_count"
+echo "Restoring server-data..."
+
+if [[ "$has_env" == "true" ]]; then
+  # New backup format (root is 'server-data')
+  tar -xzf "$ARCHIVE_PATH" server-data
+else
+  # Legacy backup format (root is 'data' or similar)
+  echo "  Stripping $strip_count leading components..."
+  tar -xzf "$ARCHIVE_PATH" -C "$SERVER_DATA_DIR" --strip-components="$strip_count"
+fi
 
 echo "Restoration complete."
 echo "Please check '${SERVER_DATA_DIR}' content before starting the server."
