@@ -1,0 +1,28 @@
+# Core Keeper runtime volumes
+server-data/
+server-files/
+
+# Core Keeper generated files (if server files are bind-mounted or copied into repo)
+**/GameID.txt
+**/GameInfo.txt
+**/logs/
+
+# Unity/Mono crash + diagnostics
+**/*_Data/Crashes/
+**/*.dmp
+**/*.stacktrace
+**/crash*
+**/Player.log
+**/Player-prev.log
+
+# Local env (keep example committed)
+core.env
+
+# Logs
+*.log
+*.log.*
+*.txt
+
+# Editor/OS
+.vscode/
+.DS_Store

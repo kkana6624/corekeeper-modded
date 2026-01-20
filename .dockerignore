@@ -1,0 +1,9 @@
+# Core Keeper runtime data
+server-data/
+server-files/
+
+# editor
+.vscode/
+
+# misc
+*.log
