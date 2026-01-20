@@ -63,6 +63,7 @@ cleanup() {
     kill "$xvfbpid" 2>/dev/null || true
     wait "$xvfbpid" 2>/dev/null || true
   fi
+  LD_PRELOAD= bash "${SCRIPTSDIR}/discord.sh" "🛑 Server Stopped"
 }
 trap cleanup EXIT
 
@@ -125,6 +126,10 @@ fi
 
 ./CoreKeeperServer "${params[@]}" &
 ckpid=$!
+
+# Start background monitor for Game ID and Discord notification
+# Start background monitor for Game ID and Discord notification
+LD_PRELOAD= bash "${SCRIPTSDIR}/monitor.sh" &
 
 # Stream logs to container stdout
 # (Unity writes to logfile; tail makes it visible in docker logs)

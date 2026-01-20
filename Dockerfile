@@ -41,6 +41,8 @@ RUN set -eux; \
       tini \
       tzdata \
       gosu \
+      jq \
+      dos2unix \
       ca-certificates; \
     rm -rf /var/lib/apt/lists/*; \
     mkdir -p /tmp/.X11-unix; \
@@ -50,6 +52,7 @@ RUN set -eux; \
 COPY ./scripts/ "${SCRIPTSDIR}/"
 
 RUN set -eux; \
+    dos2unix "${SCRIPTSDIR}"/*.sh; \
     chmod +x -R "${SCRIPTSDIR}"; \
     mkdir -p "${STEAMAPPDIR}" "${STEAMAPPDATADIR}"; \
     chown -R "${USER}:${USER}" "${SCRIPTSDIR}" "${STEAMAPPDIR}" "${STEAMAPPDATADIR}"
