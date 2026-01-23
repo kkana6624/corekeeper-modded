@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # ------------------------------------------------------------------
 # Restart Task Script
@@ -10,7 +11,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 ENV_FILE="${PROJECT_ROOT}/core.env"
-COMPOSE_FILE="${PROJECT_ROOT}/compose.yml"
 BACKUP_SCRIPT="${SCRIPT_DIR}/backup.sh"
 SERVICE_NAME="core-keeper" # Service name in compose.yml
 
@@ -24,17 +24,16 @@ fi
 # Discord Helpers
 notify_public() {
     local msg="$1"
-    if [[ -n "${DISCORD_WEBHOOK_URL:-}" ]]; then
-        curl -s -H "Content-Type: application/json" -X POST -d "{\"content\": \"$msg\"}" "$DISCORD_WEBHOOK_URL" || true
+    if [[ -f "${SCRIPT_DIR}/discord.sh" ]]; then
+        bash "${SCRIPT_DIR}/discord.sh" "$msg"
     fi
 }
 
 notify_admin() {
     local msg="$1"
-    # Use Maintenance URL if set, otherwise fallback to Public URL
     local url="${DISCORD_MAINT_WEBHOOK_URL:-${DISCORD_WEBHOOK_URL:-}}"
-    if [[ -n "$url" ]]; then
-        curl -s -H "Content-Type: application/json" -X POST -d "{\"content\": \"$msg\"}" "$url" || true
+    if [[ -n "$url" && -f "${SCRIPT_DIR}/discord.sh" ]]; then
+        DISCORD_WEBHOOK_URL="$url" bash "${SCRIPT_DIR}/discord.sh" "$msg"
     fi
 }
 
@@ -67,8 +66,12 @@ log "Step 1: Stopping Server..."
 notify_admin "🛠️ **Maintenance Started**\nStopping server process..."
 
 if cd "$PROJECT_ROOT"; then
-    docker compose stop -t 60 "$SERVICE_NAME"
-    log "Server Stopped."
+    if ! docker compose stop -t 60 "$SERVICE_NAME"; then
+        log "Warning: Docker stop command failed or timed out."
+        notify_admin "⚠️ **Warning:** Server stop command reported an error."
+    else
+        log "Server Stopped."
+    fi
     sleep 5
 else
     log "Error: Could not change directory to $PROJECT_ROOT"
@@ -77,19 +80,35 @@ fi
 
 # === 2. Backup ===
 log "Step 2: Starting Backup..."
+backup_status=0
 if [[ -f "$BACKUP_SCRIPT" ]]; then
-    # backup.sh handles its own notifications (to maintenance channel)
-    # We execute it in the current shell context or new one
+    # backup.sh handles its own notifications (to maintenance channel) if successful/failed internally
+    # But if the script itself crashes or exits non-zero, we catch it here.
+    
+    # Temporarily disable 'set -e' for the backup step so the whole script doesn't die
+    set +e
     bash "$BACKUP_SCRIPT"
+    backup_status=$?
+    set -e
+    
+    if [[ $backup_status -ne 0 ]]; then
+        log "⚠️ Backup script exited with error code: $backup_status"
+        notify_admin "⚠️ **Error:** Backup process failed (Code: $backup_status). Proceeding to restart..."
+    fi
 else
     log "⚠️ Backup script not found: $BACKUP_SCRIPT"
-    notify_admin "⚠️ **Error:** Backup script not found!"
+    notify_admin "⚠️ **Error:** Backup script not found! Proceeding to restart..."
 fi
 
 # === 3. Start Server ===
 log "Step 3: Starting Server..."
-docker compose up -d "$SERVICE_NAME"
-log "Server Start Command Sent."
+if docker compose up -d "$SERVICE_NAME"; then
+    log "Server Start Command Sent."
+else
+    log "❌ Error: Failed to start server!"
+    notify_admin "❌ **Critical Error:** Failed to start server container!"
+    exit 1
+fi
 
 # === 4. Completion Notification ===
 log "Maintenance sequence completed. Container startup will handle Game ID notification."
