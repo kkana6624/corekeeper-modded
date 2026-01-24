@@ -61,10 +61,14 @@ done
 if [[ -n "$game_id" ]]; then
   # Construct Embed JSON
   # Using jq to safely build the JSON string
+  # Fixed: Generate timestamp in bash to avoid jq version issues with iso8601/todate
+  ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  
   payload=$(jq -nc \
     --arg id "$game_id" \
     --arg title "🚀 Server Ready!" \
     --arg desc "The Core Keeper server is now online and ready to join." \
+    --arg time "$ts" \
     '{
       embeds: [{
         title: $title,
@@ -78,7 +82,7 @@ if [[ -n "$game_id" ]]; then
           }
         ],
         footer: { text: "Enjoy your adventure!" },
-        timestamp: (now | iso8601)
+        timestamp: $time
       }]
     }'
   )
