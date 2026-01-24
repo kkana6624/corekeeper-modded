@@ -59,7 +59,31 @@ while [[ -z "$game_id" && "$count" -lt "$max_retries" ]]; do
 done
 
 if [[ -n "$game_id" ]]; then
-  discord "✅ Server Ready! Game ID: \`${game_id}\`"
+  # Construct Embed JSON
+  # Using jq to safely build the JSON string
+  payload=$(jq -nc \
+    --arg id "$game_id" \
+    --arg title "🚀 Server Ready!" \
+    --arg desc "The Core Keeper server is now online and ready to join." \
+    '{
+      embeds: [{
+        title: $title,
+        description: $desc,
+        color: 5763719,
+        fields: [
+          {
+            name: "Game ID",
+            value: ("`" + $id + "`"),
+            inline: true
+          }
+        ],
+        footer: { text: "Enjoy your adventure!" },
+        timestamp: (now | iso8601)
+      }]
+    }'
+  )
+  
+  discord "--json" "$payload"
   exit 0
 else
   log "Timed out waiting for Game ID."

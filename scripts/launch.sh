@@ -49,7 +49,8 @@ update_config() {
 echo "Updating ServerConfig.json from environment variables..."
 
 # Standard settings
-update_config "worldName" "${WORLD_NAME:-}" "string"
+# Note: We do NOT update worldName here to respect priority (Env > Config > Default) without overwriting config.
+# update_config "worldName" "${WORLD_NAME:-}" "string"
 update_config "worldSeed" "${WORLD_SEED:-}" "string"
 update_config "maxNumberPlayers" "${MAX_PLAYERS:-}" "number"
 update_config "worldMode" "${WORLD_MODE:-}" "number"
@@ -108,7 +109,13 @@ add_param() {
 
 # Use the values we read back from the config (or defaults if they were missing in both env and json)
 add_param "-world" "${WORLD_INDEX:-0}"
-add_param "-worldname" "${c_worldName:-Core Keeper Server}"
+# Resolve World Name Priority:
+# 1. Environment Variable ($WORLD_NAME)
+# 2. ServerConfig.json Value ($c_worldName)
+# 3. Default ("Core Keeper Server")
+final_worldName="${WORLD_NAME:-${c_worldName:-Core Keeper Server}}"
+
+add_param "-worldname" "${final_worldName}"
 add_param "-worldseed" "${c_worldSeed:-}"
 add_param "-worldmode" "${c_worldMode:-0}"
 add_param "-gameid" "${c_gameId:-}"

@@ -17,7 +17,7 @@ SERVICE_NAME="core-keeper" # Service name in compose.yml
 # Load Environment Variables
 if [[ -f "$ENV_FILE" ]]; then
   set -a
-  source <(sed -E 's/^([^=]+)=(.*)/\1="\2"/' "$ENV_FILE")
+  source <(sed -e 's/[[:space:]]*#.*//' -e '/^\s*$/d' "$ENV_FILE" | sed -E 's/^([^=]+)=(.*)/\1="\2"/')
   set +a
 fi
 
@@ -47,15 +47,15 @@ log "=== Scheduled Maintenance Sequence Initiated ==="
 # Check if we should skip countdown (for testing)
 if [[ "${SKIP_COUNTDOWN:-false}" != "true" ]]; then
     log "Countdown: 10 minutes"
-    notify_public "📢 **Server Notification**\nServer maintenance will start in **10 minutes**.\nPlease prepare to log out."
+    notify_public $'📢 **Server Notification**\nServer maintenance will start in **10 minutes**.\nPlease prepare to log out.'
     sleep 300
 
     log "Countdown: 5 minutes"
-    notify_public "📢 **Server Notification**\nServer maintenance in **5 minutes**."
+    notify_public $'📢 **Server Notification**\nServer maintenance in **5 minutes**.'
     sleep 240
 
     log "Countdown: 1 minute"
-    notify_public "⚠️ **Warning**\nServer restarting in **1 minute**.\n**Please save and disconnect immediately.**"
+    notify_public $'⚠️ **Warning**\nServer restarting in **1 minute**.\n**Please save and disconnect immediately.**'
     sleep 60
 else
     log "Skipping countdown (SKIP_COUNTDOWN=true)"
@@ -63,7 +63,7 @@ fi
 
 # === 1. Stop Server ===
 log "Step 1: Stopping Server..."
-notify_admin "🛠️ **Maintenance Started**\nStopping server process..."
+notify_admin $'🛠️ **Maintenance Started**\nStopping server process...'
 
 if cd "$PROJECT_ROOT"; then
     if ! docker compose stop -t 60 "$SERVICE_NAME"; then
@@ -112,7 +112,7 @@ fi
 
 # === 4. Completion Notification ===
 log "Maintenance sequence completed. Container startup will handle Game ID notification."
-notify_public "✅ **Maintenance Complete**\nServer will be back online soon!"
+notify_public $'✅ **Maintenance Complete**\nServer will be back online soon!'
 notify_admin "✅ **Maintenance Complete** (Container restarted)"
 
 log "=== Maintenance Sequence Finished ==="
