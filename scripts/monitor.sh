@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-echo "Starting monitor.sh..."
+set -x
+echo "Starting monitor.sh..." | tee /tmp/monitor_start.log
 
 : "${HOMEDIR:=/home/steam}"
 : "${STEAMAPPDIR:=${HOMEDIR}/core-keeper-dedicated}"
@@ -30,7 +31,7 @@ gameid_txt="${STEAMAPPDIR}/GameID.txt" # Standard dedicated server file
 
 log "Waiting for Game ID in ${config_file} or ${gameid_txt}..."
 
-# Game ID detection loop (simplified)
+# Game ID detection loop
 game_id=""
 while [[ -z "$game_id" && "$count" -lt "$max_retries" ]]; do
   # Try to read from ServerConfig.json
@@ -59,7 +60,35 @@ while [[ -z "$game_id" && "$count" -lt "$max_retries" ]]; do
 done
 
 if [[ -n "$game_id" ]]; then
-  discord "✅ Server Ready! Game ID: \`${game_id}\`"
+  # Construct Embed JSON
+  # Using jq to safely build the JSON string
+  # Fixed: Generate timestamp in bash to avoid jq version issues with iso8601/todate
+  ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  
+  payload=$(jq -nc \
+    --arg id "$game_id" \
+    --arg title "🚀 Server Ready!" \
+    --arg desc "The Core Keeper server is now online and ready to join." \
+    --arg time "$ts" \
+    '{
+      embeds: [{
+        title: $title,
+        description: $desc,
+        color: 5763719,
+        fields: [
+          {
+            name: "Game ID",
+            value: ("`" + $id + "`"),
+            inline: true
+          }
+        ],
+        footer: { text: "Enjoy your adventure!" },
+        timestamp: $time
+      }]
+    }'
+  )
+  
+  discord "--json" "$payload"
   exit 0
 else
   log "Timed out waiting for Game ID."

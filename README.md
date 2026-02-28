@@ -125,3 +125,15 @@ docker compose stop
 
    0 4 * * * /home/your_user/corekeeper-modded/scripts/backup.sh /home/your_user/corekeeper-modded/backups >> /home/your_user/corekeeper-modded/logs/backup.log 2>&1
 ```
+
+## 定期メンテナンス (自動再起動)
+
+`scripts/restart_task.sh` を使用して、毎日の定期再起動とメンテナンス通知（カウントダウン）を完全自動化できます。
+処理フロー: 事前通知(10分前~) → 停止 → バックアップ → 起動 → 完了通知
+
+### Cron 設定例 (毎日 04:00 に実行)
+
+```bash
+0 4 * * * /opt/gameserver/corekeeper-modded/scripts/restart_task.sh >> /opt/gameserver/corekeeper-modded/logs/restart.log 2>&1
+```
+

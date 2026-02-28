@@ -13,7 +13,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Use set -a to automatically export sourced variables so child scripts (discord.sh) can see them.
 if [[ -f "$PROJECT_ROOT/core.env" ]]; then
   set -a
-  source <(sed -E 's/^([^=]+)=(.*)/\1="\2"/' "$PROJECT_ROOT/core.env")
+  source <(sed -e 's/[[:space:]]*#.*//' -e '/^\s*$/d' "$PROJECT_ROOT/core.env" | sed -E 's/^([^=]+)=(.*)/\1="\2"/')
   set +a
 fi
 

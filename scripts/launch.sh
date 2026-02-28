@@ -13,45 +13,86 @@ logfile="${STEAMAPPDIR}/logs/$(date '+%Y-%m-%d_%H-%M-%S').log"
 touch "$logfile"
 
 # ==============================================================================
-# Dynamic Game ID Logic: Preserve Config Settings
+# Configuration Management & Dynamic Game ID
 # ==============================================================================
-# If DISCARD_GAME_ID is set, we want to regenerate the Game ID.
-# However, deleting ServerConfig.json also resets world settings (Name, Seed, etc.).
-# Solution: Read existing settings BEFORE overwriting env vars/args, then delete file.
+
+config_path="${DATA_PATH:-${STEAMAPPDATADIR}}/ServerConfig.json"
+
+# 1. Update/Create ServerConfig.json based on core.env (Source of Truth)
+# We use jq to merge env vars into the config file.
+# Priority: core.env > Existing Config > Defaults
+
+# Ensure config file exists with empty json if missing
+if [[ ! -f "$config_path" ]]; then
+  echo "{}" > "$config_path"
+fi
+
+# Prepare values for jq (defaults if not set)
+# Note: jq arg parsing handles empty strings gracefully usually, but we want explicit nulls or values.
+
+# Helper to update a json field if env var is set
+update_config() {
+  local key="$1"
+  local env_val="$2"
+  local type="$3" # string or number
+
+  if [[ -n "$env_val" ]]; then
+    tmp=$(mktemp)
+    if [[ "$type" == "number" ]]; then
+       jq --argjson val "$env_val" ".$key = \$val" "$config_path" > "$tmp" && mv "$tmp" "$config_path"
+    else
+       jq --arg val "$env_val" ".$key = \$val" "$config_path" > "$tmp" && mv "$tmp" "$config_path"
+    fi
+  fi
+}
+
+echo "Updating ServerConfig.json from environment variables..."
+
+# Standard settings
+# Note: We do NOT update worldName here to respect priority (Env > Config > Default) without overwriting config.
+# update_config "worldName" "${WORLD_NAME:-}" "string"
+update_config "worldSeed" "${WORLD_SEED:-}" "string"
+update_config "maxNumberPlayers" "${MAX_PLAYERS:-}" "number"
+update_config "worldMode" "${WORLD_MODE:-}" "number"
+
+# Extended settings requested by user
+update_config "seasonOverride" "${SEASON_OVERRIDE:-}" "number"
+update_config "networkSendRate" "${NETWORK_SEND_RATE:-}" "number"
+update_config "maxNumberPacketsSentPerFrame" "${MAX_PACKETS:-}" "number"
+
+
+# 2. Dynamic Game ID Logic
+# If DISCARD_GAME_ID is set, we delete the `gameId` field from json and the text file.
 if [[ "${DISCARD_GAME_ID:-false}" =~ ^([Tt][Rr][Uu][Ee]|1|[Yy][Ee][Ss])$ ]]; then
-  config_path="${DATA_PATH:-${STEAMAPPDATADIR}}/ServerConfig.json"
+  echo "Forcing new Game ID generation (DISCARD_GAME_ID=true)..."
   
-  if [[ -f "$config_path" ]]; then
-    echo "Reading existing settings from ${config_path}..."
-    
-    # Extract settings to preserve
-    c_worldName=$(jq -r '.worldName // empty' "$config_path")
-    c_worldSeed=$(jq -r '.worldSeed // empty' "$config_path")
-    c_maxPlayers=$(jq -r '.maxNumberPlayers // empty' "$config_path")
-    c_worldMode=$(jq -r '.worldMode // empty' "$config_path")
+  # Remove gameId from json
+  tmp=$(mktemp)
+  jq 'del(.gameId)' "$config_path" > "$tmp" && mv "$tmp" "$config_path"
 
-    # Override env vars if config had values
-    if [[ -n "$c_worldName" ]]; then WORLD_NAME="$c_worldName"; fi
-    if [[ -n "$c_worldSeed" && "$c_worldSeed" != "0" ]]; then WORLD_SEED="$c_worldSeed"; fi
-    if [[ -n "$c_maxPlayers" ]]; then MAX_PLAYERS="$c_maxPlayers"; fi
-    if [[ -n "$c_worldMode" ]]; then WORLD_MODE="$c_worldMode"; fi
-
-    echo "Removing ${config_path} to force new Game ID generation..."
-    rm "$config_path"
+  # Remove GameID.txt
+  gameid_txt="${STEAMAPPDIR}/GameID.txt"
+  if [[ -f "$gameid_txt" ]]; then
+    rm "$gameid_txt"
   fi
   
+  # Clean backups
   if [[ -f "${config_path}.pugbackup" ]]; then
     rm "${config_path}.pugbackup"
   fi
-
-  # Also remove GameID.txt in the app directory which might be used as fallback
-  gameid_txt="${STEAMAPPDIR}/GameID.txt"
-  if [[ -f "$gameid_txt" ]]; then
-    echo "Removing ${gameid_txt} to force new Game ID generation..."
-    rm "$gameid_txt"
-  fi
 fi
+
 # ==============================================================================
+
+# Read final values from config to pass as arguments (for logging/consistency)
+# Note: The server reads the JSON file, but passing args is good practice for some overrides.
+# We will use the values potentially just updated.
+
+c_worldName=$(jq -r '.worldName // empty' "$config_path")
+c_worldSeed=$(jq -r '.worldSeed // empty' "$config_path")
+c_maxPlayers=$(jq -r '.maxNumberPlayers // empty' "$config_path")
+c_worldMode=$(jq -r '.worldMode // empty' "$config_path")
+c_gameId=$(jq -r '.gameId // empty' "$config_path")
 
 params=(
   "-batchmode"
@@ -66,13 +107,20 @@ add_param() {
   fi
 }
 
+# Use the values we read back from the config (or defaults if they were missing in both env and json)
 add_param "-world" "${WORLD_INDEX:-0}"
-add_param "-worldname" "${WORLD_NAME:-Core Keeper Server}"
-add_param "-worldseed" "${WORLD_SEED:-}"
-add_param "-worldmode" "${WORLD_MODE:-0}"
-add_param "-gameid" "${GAME_ID:-}"
+# Resolve World Name Priority:
+# 1. Environment Variable ($WORLD_NAME)
+# 2. ServerConfig.json Value ($c_worldName)
+# 3. Default ("Core Keeper Server")
+final_worldName="${WORLD_NAME:-${c_worldName:-Core Keeper Server}}"
+
+add_param "-worldname" "${final_worldName}"
+add_param "-worldseed" "${c_worldSeed:-}"
+add_param "-worldmode" "${c_worldMode:-0}"
+add_param "-gameid" "${c_gameId:-}"
 add_param "-datapath" "${DATA_PATH:-${STEAMAPPDATADIR}}"
-add_param "-maxplayers" "${MAX_PLAYERS:-10}"
+add_param "-maxplayers" "${c_maxPlayers:-10}"
 add_param "-ip" "${SERVER_IP:-}"
 add_param "-port" "${SERVER_PORT:-}"
 add_param "-password" "${PASSWORD:-}"
@@ -161,7 +209,7 @@ fi
 ckpid=$!
 
 # Start background monitor for Game ID
-LD_PRELOAD= bash "${SCRIPTSDIR}/monitor.sh" &
+bash "${SCRIPTSDIR}/monitor.sh" &
 
 # Start background player monitor (stateless log watcher)
 LD_PRELOAD= bash "${SCRIPTSDIR}/player_monitor.sh" "$logfile" &
