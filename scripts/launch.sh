@@ -209,7 +209,7 @@ fi
 ckpid=$!
 
 # Start background monitor for Game ID
-LD_PRELOAD= bash "${SCRIPTSDIR}/monitor.sh" &
+bash "${SCRIPTSDIR}/monitor.sh" &
 
 # Start background player monitor (stateless log watcher)
 LD_PRELOAD= bash "${SCRIPTSDIR}/player_monitor.sh" "$logfile" &

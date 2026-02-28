@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-echo "Starting monitor.sh..."
+set -x
+echo "Starting monitor.sh..." | tee /tmp/monitor_start.log
 
 : "${HOMEDIR:=/home/steam}"
 : "${STEAMAPPDIR:=${HOMEDIR}/core-keeper-dedicated}"
@@ -30,7 +31,7 @@ gameid_txt="${STEAMAPPDIR}/GameID.txt" # Standard dedicated server file
 
 log "Waiting for Game ID in ${config_file} or ${gameid_txt}..."
 
-# Game ID detection loop (simplified)
+# Game ID detection loop
 game_id=""
 while [[ -z "$game_id" && "$count" -lt "$max_retries" ]]; do
   # Try to read from ServerConfig.json

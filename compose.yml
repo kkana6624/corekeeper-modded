@@ -27,30 +27,15 @@ services:
       - path: core.env
         required: false
 
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: node-exporter
-    restart: always
-    ports:
-      - "9100:9100"
+  discord-bot:
+    build: ./bot
+    container_name: core-keeper-bot
+    restart: unless-stopped
     volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
-    restart: always
-    ports:
-      - "8080:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-    devices:
-      - /dev/kmsg
+      # Read logs/config to provide status
+      - ./server-data:/home/steam/core-keeper-data:ro
+      # Grant access to Docker Daemon for 'docker exec'
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - path: core.env
+        required: true

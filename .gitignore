@@ -26,3 +26,5 @@ core.env
 # Editor/OS
 .vscode/
 .DS_Store
+
+**/backups/
